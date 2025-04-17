@@ -4,6 +4,22 @@ This repository combines the last version of LHAPDF5 and the migration scripts f
 
 There's a container avaliable (using CentOS 8) with older environments and a compiled LHAPDF5.9.1. 
 
+## usage
+for converting old `lhapdf5` pdfsets to `lhapdf6` format, modified for `GRV98` sets. migration scripts under `/root/lhapdf-5.9.1/migration/`. `GRV98` sets have been recorded in `tomigrate`, so using 
+```
+cat tomigrate | grep -E -v "^#" | grep GRV | while read l; do eval "./creategrids $l"; done
+```
+is fine. 
+
+Note that `creategrids` only works with PDF sets under LHAPDFsets path, which is `/usr/local/share/lhapdf/PDFsets/` in this configuration. 
+
+Instruction for installing the image (if you are using fedora, replace `docker` with `podman` or `dnf install podman-docker`. if you encounter any problem with root privilege, just prepend `sudo`): 
+```
+docker pull turgongondolin/centos8-lhapdf5
+docker run -it centos8-lhapdf5 bash
+```
+for rootless setup, checkout [docker_rootless](https://docs.docker.com/engine/security/rootless/) or [podman_rootless](https://github.com/containers/podman/blob/main/docs/tutorials/rootless_tutorial.md).
+
 The Les Houche Accord Parton Density Function library - LHAPDF
 ==============================================================
 
