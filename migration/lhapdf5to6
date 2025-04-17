@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python2
 
 """\
 Usage: %prog <setname> [<setname2> ...]
@@ -38,6 +38,7 @@ ap.add_argument("--qmin", dest="QMIN", metavar="Q", help="set flag and truncate 
 ap.add_argument("--qmax", dest="QMAX", metavar="Q", help="set flag and truncate the Q knots array at Q, even if the PDF reports knots higher than that", type=float, default=None)
 ap.add_argument("--xsfile", dest="XSFILE", metavar="FILE", help="file of sample knots in x", default=None)
 ap.add_argument("--qsfile", dest="QSFILE", metavar="FILE", help="file of sample knots in Q", default=None)
+ap.add_argument("--q2sfile", dest="Q2SFILE", metavar="FILE", help="file of sample knots in Q2", default=None)
 ap.add_argument("--extraxs", dest="EXTRAXS", metavar="X1,X2,...", help="comma-separated list of extra sample knots in x", default=None)
 ap.add_argument("--extraqs", dest="EXTRAQS", metavar="Q1,Q2,...", help="comma-separated list of extra sample knots in Q", default=None)
 ap.add_argument("--resample", dest="RESAMPLE", action="store_true", help="override the original sample grid with a new one (hard coded)", default=False)
@@ -122,6 +123,7 @@ for lha5name in args.LHA5NAMES:
         xmax = 1.0 # this one is a given!
         qmin = math.sqrt(lhapdf.getQ2min(1)) if args.QMIN is None else args.QMIN
         qmax = math.sqrt(lhapdf.getQ2max(1)) if args.QMAX is None else args.QMAX
+        print("qmin, qmax = %0.2g, %0.2g" % (qmin, qmax))
 
         ## Get the x and Q anchor point arrays
         if not args.RESAMPLE:
@@ -131,14 +133,22 @@ for lha5name in args.LHA5NAMES:
                 _lha = ctypes.CDLL('libLHAPDF.so')
             except:
                 _lha = ctypes.CDLL('libLHAPDF.dylib')
+            # if "GRV98" in setname:
+            #     if "98lo" in setname:
+            #         GRVstrx=" 1.00E-9 1.80E-9 3.20E-9 5.70E-9 1.00E-8 1.80E-8 3.20E-8 5.70E-8 1.00E-7 1.80E-7 3.20E-7 5.70E-7 1.00E-6 1.40E-6 2.00E-6 3.00E-6 4.50E-6 6.70E-6 1.00E-5 1.40E-5 2.00E-5 3.00E-5 4.50E-5 6.70E-5 1.00E-4 1.40E-4 2.00E-4 3.00E-4 4.50E-4 6.70E-4 1.00E-3 1.40E-3 2.00E-3 3.00E-3 4.50E-3 6.70E-3 1.00E-2 1.40E-2 2.00E-2 3.00E-2 4.50E-2 6.00E-2 8.00E-2 1.00E-1 1.25E-1 1.50E-1 1.75E-1 2.00E-1 2.25E-1 2.50E-1 2.75E-1 3.00E-1 3.25E-1 3.50E-1 3.75E-1 4.00E-1 4.50E-1 5.00E-1 5.50E-1 6.00E-1 6.50E-1 7.00E-1 7.50E-1 8.00E-1 8.50E-1 9.00E-1 9.50E-1 1.00E00"
+            #         GRVstrq2s="0.80E00 1.00E00 1.30E00 1.80E00 2.70E00 4.00E00 6.40E00 1.00E01 1.60E01 2.50E01 4.00E01 6.40E01 1.00E02 1.80E02 3.20E02 5.70E02 1.00E03 1.80E03 3.20E03 5.70E03 1.00E04 2.20E04 4.60E04 1.00E05 2.20E05 4.60E05 1.00E06"
+            #     elif "98nlo" in setname:
+            #         GRVstrx="1.00E-9 1.80E-9 3.20E-9 5.70E-9 1.00E-8 1.80E-8 3.20E-8 5.70E-8 1.00E-7 1.80E-7 3.20E-7 5.70E-7 1.00E-6 1.40E-6 2.00E-6 3.00E-6 4.50E-6 6.70E-6 1.00E-5 1.40E-5 2.00E-5 3.00E-5 4.50E-5 6.70E-5 1.00E-4 1.40E-4 2.00E-4 3.00E-4 4.50E-4 6.70E-4 1.00E-3 1.40E-3 2.00E-3 3.00E-3 4.50E-3 6.70E-3 1.00E-2 1.40E-2 2.00E-2 3.00E-2 4.50E-2 6.00E-2 8.00E-2 1.00E-1 1.25E-1 1.50E-1 1.75E-1 2.00E-1 2.25E-1 2.50E-1 2.75E-1 3.00E-1 3.25E-1 3.50E-1 3.75E-1 4.00E-1 4.50E-1 5.00E-1 5.50E-1 6.00E-1 6.50E-1 7.00E-1 7.50E-1 8.00E-1 8.50E-1 9.00E-1 9.50E-1 1.00E00"
+            #         GRVstrq2s="0.80E00 1.00E00 1.30E00 1.80E00 2.70E00 4.00E00 6.40E00 1.00E01 1.60E01 2.50E01 4.00E01 6.40E01 1.00E02 1.80E02 3.20E02 5.70E02 1.00E03 1.80E03 3.20E03 5.70E03 1.00E04 2.20E04 4.60E04 1.00E05 2.20E05 4.60E05 1.00E06"
+            #     xs = [float(x) for x in GRVstrx.split()]
+            #     q2s = [float(q2) for q2 in GRVstrq2s.split()]
+            # else:
             nxgrid = ctypes.c_uint()
             nqgrid = ctypes.c_uint()
             gridx = (ctypes.c_double * 500)()
             gridq = (ctypes.c_double * 500)()
             _lha.getgrid_(ctypes.byref(nxgrid), ctypes.byref(nqgrid), gridx, gridq)
             xs, q2s = gridx[:nxgrid.value], gridq[:nqgrid.value]
-            if not xs or not q2s:
-                raise Exception("x or Q2 grids not extracted from original PDF")
             qs = list(numpy.sqrt(numpy.array(q2s)))
             del q2s
             #print xs
@@ -170,7 +180,21 @@ for lha5name in args.LHA5NAMES:
             qs.sort()
             if member == 0:
                 print("Overriding Q knots with:", ["%4.2g" % q for q in qs])
+        ## Same for Qs from override file
+        if args.Q2SFILE:
+            q2s = []
+            f = open(args.Q2SFILE)
+            for l in f:
+                q2s += [float(sq) for sq in l.split()]
+            q2s.sort()
+            qs = list(numpy.sqrt(numpy.array(q2s)))
+            del q2s
+            if member == 0:
+                print("Overriding Q knots with:", ["%4.2g" % q for q in qs])
 
+        if not xs or not qs:
+            raise Exception("x or Q grids not extracted from original PDF")
+        
         def fuzzyeq(a, b, tol=1e-6):
             if a == b:
                 return True
@@ -225,7 +249,6 @@ for lha5name in args.LHA5NAMES:
         # print "x = [%0.2g, %0.2g], Q = [%0.2g, %0.2g]" % (xmin, xmax, qmin, qmax)
         if not xmin or not xmax or not qmin or not qmax:
             print("WARNING: x and/or Q limits not correctly obtained")
-
 
         ## Detect and assign Q interpolation subgrids (use a single subgrid if there are no subgrids)
         qgrids = []
@@ -400,6 +423,7 @@ for lha5name in args.LHA5NAMES:
                     #     # TODO: Remove this when LHAPDF ipol knows about x=1
                     #     xfs.append([0.0 for pid in lha5pids])
                     ## Offset the sampling (but not the reported Q) a little on the low Q edges of later subgrids
+                    # print("check iq", iq, "igrid", igrid, "q", q, "ix", ix, "x", x)
                     if igrid > 0 and iq == 0:
                         q += 1e-10
                     ## Similarly for the high Q edges of subgrids other than the last
