@@ -1,3 +1,9 @@
+# LHAPDF5to6 Migration
+
+This repository combines the last version of LHAPDF5 and the migration scripts from LHAPDF6. All credits go to the original developers of LHAPDF. 
+
+There's a container avaliable (using CentOS 8) with older environments and a compiled LHAPDF5.9.1. 
+
 The Les Houche Accord Parton Density Function library - LHAPDF
 ==============================================================
 
