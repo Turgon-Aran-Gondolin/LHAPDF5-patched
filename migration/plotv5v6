@@ -1,0 +1,172 @@
+#! /usr/bin/env python
+
+"""\
+Usage: %prog <data1.dat> <data2.dat> [...]
+
+Plot the given PDF and alpha_s comparison files.
+"""
+
+from __future__ import print_function
+import os, sys
+
+
+## Parse command-line arguments
+import argparse
+ap = argparse.ArgumentParser(usage=__doc__)
+ap.add_argument("DATFILES", nargs="+")
+ap.add_argument("-o", dest="OUTPUT", metavar="FILE", help="output file [default: %default]", default="cmpv5v6.pdf")
+ap.add_argument("--axis", dest="AXIS", metavar="AXIS", help="axes mode (xf plotting only): x, q [default: %default]", default="x")
+ap.add_argument("--type", dest="TYPE", metavar="TYPE", help="value type being plotted: xf, xfdiff, as, asdiff [default: %default]", default="xfdiff")
+ap.add_argument("--log", dest="LOG", metavar="SCALETYPE", help="axes logarithmic plotting: x, y, xy [default: %default]", default="xy")
+ap.add_argument("-t", dest="TOLERANCE", metavar="TOL", help="acceptable level of fractional deviation [default: %default]", type=float, default=1e-3)
+ap.add_argument("--xmin", dest="XMIN", metavar="X", help="low edge of the range in x [default: %default]", type=float, default=None)
+ap.add_argument("--qmax", dest="QMAX", metavar="Q", help="high edge of the range in Q [default: %default]", type=float, default=None)
+ap.add_argument("--xlim", dest="XLIM", metavar="Xlow:Xhigh", help="edges of the plot range in x, colon-separated [default: %default]", default=None)
+ap.add_argument("--ylim", dest="YLIM", metavar="Ylow:Yhigh", help="edges of the plot range in y, colon-separated [default: %default]", default=None)
+ap.add_argument("--vlines", dest="VLINES", metavar="FILE", help="plot a vertical line at each of the space-separated values in FILE [default: %default]", default=None)
+args = ap.parse_args()
+
+if not args.DATFILES or not all(os.path.exists(a) for a in args.DATFILES):
+    print("Null args = '%s'" % " ".join(args.DATFILES))
+    sys.exit(1)
+
+if "as" in args.TYPE:
+    args.AXIS = "q"
+
+import matplotlib.pyplot as plt
+plt.rcParams["font.family"] = "serif"
+# plt.rcParams["font.serif"] = "Computer Modern Roman"
+# plt.rcParams["text.usetex"] = True
+
+STYLES = ["-", ":", "--", "-."]
+COLORS = ["red", "blue", "darkgreen", "orange", "purple", "magenta", "gray", "cyan"]
+PARTONS = {-5:r"$\bar{b}$",-4:r"$\bar{c}$",-3:r"$\bar{s}$",-2:r"$\bar{u}$",-1:r"$\bar{d}$",
+           1:r"$d$",2:r"$u$",3:r"$s$",4:r"$c$",5:r"$b$",0:r"$g$"}
+
+def latex_float(f):
+    float_str = "{0:.2g}".format(f)
+    if "e" in float_str:
+        mant, exp = float_str.split("e")
+        exp = int(exp)
+        return r"{0} \times 10^{{{1}}}".format(mant, exp)
+    else:
+        return float_str
+
+## Do correct sorting, and labels as file:label args
+index_fname = {}
+fname_label = {}
+for i, a in enumerate(args.DATFILES):
+    #print i, a
+    index = i
+    if ":" in a:
+        fname, label = a.split(":", maxsplit=1)
+    else:
+        fname = a
+        label = a.replace(".dat", "").replace("_", " ")
+        try:
+            details = label.split()
+            if details[1].startswith("v"):
+                details[0] += " " + details[1]
+                del details[1] # remove v5/6
+                del details[1] # remove scanx/q
+                #print details
+            yvar = details[0]
+            xvar = details[1][0]
+            xval = float(details[1][1:])
+            pid = int(details[2])
+            label = r"{yvar}, flav = {flav}, ${xvar} = {xval}$".format(yvar=yvar, xvar=xvar, xval=latex_float(xval), flav=PARTONS.get(pid, pid))
+            index = (yvar, xval)
+        except:
+            pass
+    index_fname[index] = fname
+    fname_label[fname] = label
+
+## Plot each line
+i = 0
+valid = False
+for _, fname in sorted(index_fname.items()):
+    f = open(fname)
+    xs, vals = [], []
+    for line in f:
+        if args.TYPE.startswith("xf"):
+            x, q, val = [float(a) for a in line.split()]
+            if args.AXIS == "x":
+                xs.append(x)
+            elif args.AXIS == "q":
+                xs.append(q)
+            vals.append(val)
+        elif args.TYPE.startswith("as"):
+            q, val = [float(a) for a in line.split()]
+            xs.append(q)
+            vals.append(val)
+    if not any(v for v in vals):
+        continue
+    ## Line styles and colors
+    color = COLORS[i % len(COLORS)]
+    style = STYLES[(i // len(COLORS)) % len(COLORS)]
+    i += 1
+    plt.plot(xs, vals, label=fname_label[fname], linestyle=style, color=color)
+    valid = True
+
+## Escape early with no plot output if there are no non-zero values
+if not valid:
+    print("No non-zero data values; cannot plot on a log scale... exiting")
+    sys.exit(2)
+
+## Set up axes with log scales
+if "x" in args.LOG:
+    plt.xscale("log")
+if "y" in args.LOG:
+    plt.yscale("log")
+    if "diff" in args.TYPE:
+        plt.ylim(ymin=1e-5)
+
+## Set (override) axis limits
+if args.XLIM:
+    xlow, xhigh = args.XLIM.split(":")
+    if xlow: plt.xlim(xmin=float(xlow))
+    if xhigh: plt.xlim(xmax=float(xhigh))
+if args.YLIM:
+    ylow, yhigh = args.YLIM.split(":")
+    if ylow: plt.ylim(ymin=float(ylow))
+    if yhigh: plt.ylim(ymax=float(yhigh))
+
+## Set up axis labels
+if args.TYPE == "xf":
+    plt.ylabel("$xf(x,Q)$")
+elif args.TYPE == "xfdiff":
+    plt.ylabel(r"$|f_6 - f_5| / (|f_5| + \epsilon)$")
+    # plt.ylabel(r"$|f_6+\epsilon|/|f_5+\epsilon| - 1$")
+elif args.TYPE == "as":
+    plt.ylabel(r"$\alpha_s(Q)$")
+elif args.TYPE == "asdiff":
+    plt.ylabel(r"$|\alpha_6 - \alpha_5| / (|\alpha_5| + \epsilon)$")
+
+## Set up plot titles
+if args.AXIS == "x":
+    plt.xlabel("$x$")
+    if args.XMIN:
+        plt.axvline(args.XMIN, linewidth=1, color="black", linestyle=":")
+elif args.AXIS == "q":
+    plt.xlabel("$Q$")
+    if args.QMAX:
+        plt.axvline(args.QMAX, linewidth=1, color="black", linestyle=":")
+
+## Plot vertical lines from a file (e.g. for marking all knot values)
+if args.VLINES:
+    f = open(args.VLINES)
+    for line in f:
+        for xval in [float(x) for x in line.split()]:
+            plt.axvline(xval, linewidth=1, color="gray", linestyle=":")
+
+## Legend
+l = plt.legend(loc=0, ncol=2, frameon=False)
+for t in l.get_texts():
+    t.set_size("xx-small")
+
+## If plotting fractional deviations, draw the tolerance level
+if "diff" in args.TYPE:
+    plt.axhline(args.TOLERANCE, linewidth=1, color="red", linestyle=":")
+
+## Save the plot
+plt.savefig(args.OUTPUT)
